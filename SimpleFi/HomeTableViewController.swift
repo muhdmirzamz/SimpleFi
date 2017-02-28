@@ -9,15 +9,17 @@
 import UIKit
 import CoreData
 
-class HomeTableViewController: UITableViewController {
+class HomeTableViewController: UITableViewController, UISearchResultsUpdating {
 	// making this an outlet does not work
 	// you have to init and set it to nav bar
 	var moreButton: UIBarButtonItem?
+	var searchController: UISearchController?
 	
 	var userAction = UserAction()
 	var validator = Validator()
 	var uiHelper = UIHelper()
 	var itemsArray = [NSManagedObject]()
+	var filteredItemsArray = [NSManagedObject]()
 	
 	var level = 0
 	var filePath = "/"
@@ -31,6 +33,12 @@ class HomeTableViewController: UITableViewController {
 		self.navigationItem.rightBarButtonItem = self.moreButton
 		
 		self.clearsSelectionOnViewWillAppear = true
+		
+		self.searchController = UISearchController.init(searchResultsController: nil)
+		self.searchController?.searchResultsUpdater = self
+		self.searchController?.dimsBackgroundDuringPresentation = false
+		self.searchController?.definesPresentationContext = true
+		self.tableView.tableHeaderView = self.searchController?.searchBar
 	}
 	
 	override func viewWillAppear(_ animated: Bool) {
@@ -130,19 +138,35 @@ class HomeTableViewController: UITableViewController {
 
 	override func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
 		// #warning Incomplete implementation, return the number of rows
+		if (self.searchController?.isActive)! && self.searchController?.searchBar.text?.isEmpty == false {
+			return self.filteredItemsArray.count
+		}
+		
 		return self.itemsArray.count
 	}
 
 	override func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
 		let cell = tableView.dequeueReusableCell(withIdentifier: "cell", for: indexPath)
 		
-		if let item = self.itemsArray[indexPath.row] as? Item {
-			if item.isFolder == true {
-				cell.textLabel?.text = item.name!
-				cell.accessoryType = .disclosureIndicator
-				cell.imageView?.image = UIImage.init(named: "ic_folder_open")
-			} else {
-				cell.textLabel?.text = item.name
+		if (self.searchController?.isActive)! && self.searchController?.searchBar.text?.isEmpty == false {
+			if let item = self.filteredItemsArray[indexPath.row] as? Item {
+				if item.isFolder == true {
+					cell.textLabel?.text = item.name!
+					cell.accessoryType = .disclosureIndicator
+					cell.imageView?.image = UIImage.init(named: "ic_folder_open")
+				} else {
+					cell.textLabel?.text = item.name
+				}
+			}
+		} else {
+			if let item = self.itemsArray[indexPath.row] as? Item {
+				if item.isFolder == true {
+					cell.textLabel?.text = item.name!
+					cell.accessoryType = .disclosureIndicator
+					cell.imageView?.image = UIImage.init(named: "ic_folder_open")
+				} else {
+					cell.textLabel?.text = item.name
+				}
 			}
 		}
 		
@@ -186,5 +210,18 @@ class HomeTableViewController: UITableViewController {
 				}
 			}
 		}
+	}
+	
+	public func updateSearchResults(for searchController: UISearchController) {
+		self.filteredItemsArray = self.itemsArray.filter{items in
+			let convertedItems = items as? Item
+			
+			let convertedItemName = (convertedItems?.name?.lowercased())!
+			
+			return (convertedItemName.contains(searchController.searchBar.text!.lowercased()))
+		}
+
+		
+		self.tableView.reloadData()
 	}
 }
